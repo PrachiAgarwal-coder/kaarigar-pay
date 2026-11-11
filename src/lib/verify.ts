@@ -20,7 +20,7 @@ Rules:
 - autoReleaseMinConfidence: 0.85-0.95 depending on value at risk.
 - buyerReviewHours: 24-72. allowPartialRelease: true when the order has multiple units.
 - governingLaw and disputeResolution: name a neutral governing law and an online arbitration clause.
-- Amounts in USD. If the description is in Hindi or another language, still write the contract in English.
+- All amounts in Indian rupees (INR), as plain numbers (no symbols, no commas). If a price is given in another currency, convert it to INR at about 88 INR per USD. If the description is in Hindi or another language, still write the contract in English.
 Return ONLY JSON matching this shape:
 ${CONTRACT_SHAPE}`;
 
@@ -116,7 +116,7 @@ export async function verifyEvidence(
 
 export type Decision =
   | { action: "release"; reason: string }
-  | { action: "partial_release"; amountUsd: number; reason: string }
+  | { action: "partial_release"; amountInr: number; reason: string }
   | { action: "review"; reason: string }
   | { action: "block"; reason: string };
 
@@ -132,7 +132,7 @@ const INJECTION_PATTERNS = [
 export function decide(
   v: Verification,
   milestone: Milestone,
-  amountUsd: number,
+  amountInr: number,
   allowPartial: boolean,
   isDuplicate: boolean
 ): Decision {
@@ -149,10 +149,10 @@ export function decide(
 
   if (fails.length) {
     if (allowPartial && v.unitsExpected && v.unitsPassed && v.unitsPassed > 0 && v.unitsPassed < v.unitsExpected) {
-      const amt = Math.floor((amountUsd * v.unitsPassed * 100) / v.unitsExpected) / 100;
+      const amt = Math.floor((amountInr * v.unitsPassed) / v.unitsExpected);
       return {
         action: "partial_release",
-        amountUsd: amt,
+        amountInr: amt,
         reason: `${v.unitsPassed}/${v.unitsExpected} units meet spec; releasing proportional amount.`,
       };
     }

@@ -16,12 +16,13 @@ export type MilestoneStatus =
 
 export type MilestoneState = {
   status: MilestoneStatus;
-  amountUsd: number;
+  amountInr: number;
+  chargedUsd?: number; // what the buyer's PayPal order is for, at the locked rate
   orderId?: string;
   authorizationId?: string;
   authorizationExpiresAt?: string;
   captureId?: string;
-  releasedUsd?: number;
+  releasedInr?: number;
   evidence: { fileHash: string; mime: string; file: string; ts: string }[];
   verification?: Verification;
   decision?: Decision;
@@ -34,6 +35,7 @@ export type Deal = {
   contract: Contract;
   accepted: { buyer?: string; seller?: string };
   termsHash?: string;
+  fxInrPerUsd?: number; // locked at signing
   status: "draft" | "active" | "completed";
   milestones: Record<string, MilestoneState>;
   log: LedgerEntry[];

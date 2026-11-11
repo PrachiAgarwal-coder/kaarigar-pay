@@ -26,7 +26,7 @@ export const ContractSchema = z.object({
   title: z.string(),
   buyer: z.object({ name: z.string(), country: z.string() }),
   seller: z.object({ name: z.string(), country: z.string() }),
-  totalAmountUsd: z.number().positive(),
+  totalAmountInr: z.number().positive(),
   items: z
     .array(
       z.object({
@@ -60,7 +60,7 @@ export function normalizeContract(c: Contract): Contract {
 }
 
 export function milestoneAmount(c: Contract, m: Milestone): number {
-  return Math.round(c.totalAmountUsd * m.percent) / 100;
+  return Math.round((c.totalAmountInr * m.percent) / 100);
 }
 
 /** Plain-text shape description given to the model (no schema API needed). */
@@ -68,7 +68,7 @@ export const CONTRACT_SHAPE = `{
   "title": string,
   "buyer": { "name": string, "country": string },
   "seller": { "name": string, "country": string },
-  "totalAmountUsd": number,
+  "totalAmountInr": number (Indian rupees),
   "items": [ { "name": string, "quantity": number,
       "specs": [ { "attribute": string, "target": string, "tolerance": string, "verifiableFromPhoto": boolean } ] } ],
   "milestones": [ { "id": string, "name": string, "percent": number,
@@ -79,3 +79,10 @@ export const CONTRACT_SHAPE = `{
   "governingLaw": string,
   "disputeResolution": string
 }`;
+
+/** FX: the contract lives in rupees; PayPal settles cross-border in USD (INR is not a PayPal
+ * cross-border currency). The rate is locked when both parties sign. */
+export const DEFAULT_FX_INR_PER_USD = Number(process.env.FX_INR_PER_USD ?? 88);
+export const inrToUsd = (inr: number, rate: number) => Math.round((inr / rate) * 100) / 100;
+export const formatInr = (n: number) =>
+  "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 0 });

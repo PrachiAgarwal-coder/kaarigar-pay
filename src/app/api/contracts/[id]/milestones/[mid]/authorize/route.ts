@@ -18,7 +18,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
       ms.status = "funded";
       appendEntry(d.log, "funded", {
         milestone: mid,
-        amountUsd: ms.amountUsd,
+        amountInr: ms.amountInr,
+        chargedUsd: ms.chargedUsd,
         paypalOrderId: orderId,
         paypalAuthorizationId: auth.authorizationId,
       });

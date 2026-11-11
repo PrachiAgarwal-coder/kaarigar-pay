@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDeal, updateDeal } from "@/lib/store";
 import { createMilestoneOrder } from "@/lib/paypal";
+import { DEFAULT_FX_INR_PER_USD, formatInr, inrToUsd } from "@/lib/contract";
 
 
 // Buyer clicks the PayPal button -> we create an AUTHORIZE order for this milestone's amount.
@@ -14,9 +15,11 @@ export async function POST(_: Request, ctx: RouteContext<"/api/contracts/[id]/mi
     const m = deal.contract.milestones.find((x) => x.id === mid);
     if (!ms || !m) throw new Error("Milestone not found");
     if (ms.status !== "awaiting_funding") throw new Error("Milestone already funded.");
-    const orderId = await createMilestoneOrder(ms.amountUsd, `${id}-${mid}`, `${deal.contract.title} — ${m.name}`);
+    const chargedUsd = inrToUsd(ms.amountInr, deal.fxInrPerUsd ?? DEFAULT_FX_INR_PER_USD);
+    const orderId = await createMilestoneOrder(chargedUsd, `${id}-${mid}`, `${deal.contract.title}: ${m.name} (${formatInr(ms.amountInr)})`);
     await updateDeal(id, (d) => {
       d.milestones[mid].orderId = orderId;
+      d.milestones[mid].chargedUsd = chargedUsd;
     });
     return NextResponse.json({ orderId });
   } catch (e) {

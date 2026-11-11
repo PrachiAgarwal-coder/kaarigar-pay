@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import type { Deal, MilestoneState } from "@/lib/store";
 import type { Milestone } from "@/lib/contract";
+import { formatInr } from "@/lib/contract";
 
 type DealView = Deal & { chainBrokenAt: number };
 type Role = "buyer" | "seller";
@@ -48,7 +49,7 @@ export default function DealPage() {
   if (error) return <main className="p-10 text-red-600">{error}</main>;
   if (!deal) return <main className="p-10 text-neutral-500">Loading contract…</main>;
   const c = deal.contract;
-  const released = Object.values(deal.milestones).reduce((s, m) => s + (m.releasedUsd ?? 0), 0);
+  const released = Object.values(deal.milestones).reduce((s, m) => s + (m.releasedInr ?? 0), 0);
 
   return (
     <PayPalScriptProvider
@@ -64,7 +65,7 @@ export default function DealPage() {
             <h1 className="mt-1 text-3xl font-bold">{c.title}</h1>
             <p className="mt-1 text-neutral-600">
               {c.seller.name} ({c.seller.country}) → {c.buyer.name} ({c.buyer.country}) ·{" "}
-              <b>${c.totalAmountUsd.toLocaleString()}</b> · released so far <b>${released.toFixed(2)}</b>
+              <b>{formatInr(c.totalAmountInr)}</b> · released so far <b>{formatInr(released)}</b>
             </p>
           </div>
           <div className="flex rounded-full bg-neutral-100 p-1 text-sm">
@@ -240,12 +241,12 @@ function MilestoneCard({
         <div>
           <p className="text-xs uppercase tracking-wider text-neutral-500">Milestone {index + 1}</p>
           <p className="text-lg font-semibold">
-            {m.name} · ${ms.amountUsd.toFixed(2)} <span className="text-sm text-neutral-500">({m.percent}%)</span>
+            {m.name} · {formatInr(ms.amountInr)} <span className="text-sm text-neutral-500">({m.percent}%)</span>
           </p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLE[ms.status]}`}>
           {STATUS_LABEL[ms.status]}
-          {ms.releasedUsd !== undefined && ms.status !== "voided" ? ` · $${ms.releasedUsd.toFixed(2)}` : ""}
+          {ms.releasedInr !== undefined && ms.status !== "voided" ? ` · ${formatInr(ms.releasedInr)}` : ""}
         </span>
       </div>
 
@@ -264,7 +265,10 @@ function MilestoneCard({
       <div className="mt-4">
         {ms.status === "awaiting_funding" && deal.status === "active" && role === "buyer" && (
           <div className="max-w-xs">
-            <p className="mb-2 text-sm text-neutral-600">Fund this milestone. PayPal holds the money until the proof is verified.</p>
+            <p className="mb-2 text-sm text-neutral-600">Fund {formatInr(ms.amountInr)}. PayPal holds the money until the proof is verified.</p>
+            <p className="mb-2 text-xs text-neutral-500">
+              Charged to the overseas buyer in USD at the rate locked at signing (₹{deal.fxInrPerUsd ?? 88} = $1).
+            </p>
             <PayPalButtons
               style={{ layout: "horizontal", tagline: false }}
               createOrder={async () => {
@@ -346,7 +350,7 @@ function MilestoneCard({
             }`}
           >
             {dec.action === "release" && "✅ Auto-released. "}
-            {dec.action === "partial_release" && `◐ Partial release $${dec.amountUsd.toFixed(2)}. `}
+            {dec.action === "partial_release" && `◐ Partial release ${formatInr(dec.amountInr)}. `}
             {dec.action === "block" && "⛔ Blocked & voided. "}
             {dec.action === "review" && "⚠️ Sent to buyer for review. "}
             {dec.reason}
@@ -380,7 +384,7 @@ function MilestoneCard({
           {ms.status === "in_review" && role === "buyer" && (
             <div className="mt-4 flex gap-3">
               <button disabled={busy} onClick={() => review("approve")} className="rounded-full bg-green-600 px-4 py-2 text-sm font-semibold text-white">
-                Approve &amp; release ${ms.amountUsd.toFixed(2)}
+                Approve &amp; release {formatInr(ms.amountInr)}
               </button>
               <button disabled={busy} onClick={() => review("reject")} className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white">
                 Reject &amp; void

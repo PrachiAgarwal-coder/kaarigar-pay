@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 const EXAMPLE = `Seller: Meera Handicrafts, Jaipur, India. Buyer: Olivia Brooks, Austin, USA.
 Order: 20 pairs of handmade kundan jhumka earrings, 22k gold-plated brass, red meenakari enamel on the back,
-3 kundan stones per earring, drop length 5 cm. Price $45 per pair, total $900.
+3 kundan stones per earring, drop length 5 cm. Price ₹3,800 per pair, total ₹76,000.
 Payment: 30% when raw materials are bought, 50% when all 20 pairs are finished, 20% when shipped with tracking.
 Delivery in 3 weeks.`;
 

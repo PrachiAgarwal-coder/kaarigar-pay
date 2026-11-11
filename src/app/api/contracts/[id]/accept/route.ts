@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateDeal } from "@/lib/store";
 import { appendEntry, sha256 } from "@/lib/ledger";
+import { DEFAULT_FX_INR_PER_USD } from "@/lib/contract";
 
 
 // POST { party: "buyer" | "seller", name: string }
@@ -17,7 +18,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
       if (d.accepted.buyer && d.accepted.seller) {
         d.termsHash = termsHash;
         d.status = "active";
-        appendEntry(d.log, "contract_locked", { termsHash });
+        d.fxInrPerUsd = DEFAULT_FX_INR_PER_USD;
+        appendEntry(d.log, "contract_locked", { termsHash, fxInrPerUsd: d.fxInrPerUsd });
       }
       return d;
     });

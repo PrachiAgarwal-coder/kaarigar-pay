@@ -38,7 +38,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
     await fs.writeFile(stored, buf);
 
     const verification = await verifyEvidence(deal.contract, m, { mime: file.type, base64: buf.toString("base64") });
-    const decision = decide(verification, m, ms.amountUsd, deal.contract.allowPartialRelease, isDuplicate);
+    const decision = decide(verification, m, ms.amountInr, deal.contract.allowPartialRelease, isDuplicate);
 
     const result = await updateDeal(id, async (d) => {
       const s = d.milestones[mid];
@@ -56,7 +56,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
 
       if (decision.action === "release") await settle(d, mid, "release", "auto-rule", decision.reason);
       else if (decision.action === "partial_release")
-        await settle(d, mid, "partial_release", "auto-rule", decision.reason, decision.amountUsd);
+        await settle(d, mid, "partial_release", "auto-rule", decision.reason, decision.amountInr);
       else if (decision.action === "block") await settle(d, mid, "void", "auto-rule", decision.reason);
       else s.status = "in_review";
       return { status: s.status, decision, verification };

@@ -2,7 +2,7 @@
 
 **A letter of credit for orders too small for a bank.**
 
-Small exporters, like an artisan in Jaipur selling 20 pairs of earrings to a boutique in Austin, can't use bank letters of credit. They're slow and expensive, and they aren't built for a $900 order. So one side always takes the whole risk: either the buyer pays 100% upfront, or the seller ships before being paid.
+Small exporters, like an artisan in Jaipur selling 20 pairs of earrings to a boutique in Austin, can't use bank letters of credit. They're slow and expensive, and they aren't built for a ₹76,000 order. So one side always takes the whole risk: either the buyer pays 100% upfront, or the seller ships before being paid.
 
 Kaarigar Pay puts AI and PayPal in that gap:
 
@@ -16,6 +16,9 @@ Kaarigar Pay puts AI and PayPal in that gap:
    - sends it to **buyer review** (low confidence, unclear checks, authenticity flags), or
    - **voids** the authorization (reused evidence or a prompt-injection attempt), so the money goes back to the buyer.
 6. Every event is written to a **hash-chained, tamper-evident ledger**.
+
+## Currency
+Everything in the product is in **Indian rupees**. PayPal doesn't support INR for cross-border payments (since 2021, Indian PayPal users send and receive international payments in USD), so the INR→USD rate is locked when both parties sign, and only the PayPal order itself is in USD. Set the rate with `FX_INR_PER_USD` in `.env.local`.
 
 ## Tech
 - **PayPal:** Orders v2 (`intent: AUTHORIZE`), Payments v2 (authorization capture, partial capture with `final_capture`, void), PayPal JS SDK buttons. All in the PayPal sandbox.

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       accepted: {},
       status: "draft",
       milestones: Object.fromEntries(
-        contract.milestones.map((m) => [m.id, { status: "awaiting_funding", amountUsd: milestoneAmount(contract, m), evidence: [] }])
+        contract.milestones.map((m) => [m.id, { status: "awaiting_funding", amountInr: milestoneAmount(contract, m), evidence: [] }])
       ),
       log: [],
     };

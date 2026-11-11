@@ -24,7 +24,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/contracts/[id]">
       d.contract = contract;
       d.accepted = {};
       d.milestones = Object.fromEntries(
-        contract.milestones.map((m) => [m.id, { status: "awaiting_funding" as const, amountUsd: milestoneAmount(contract, m), evidence: [] }])
+        contract.milestones.map((m) => [m.id, { status: "awaiting_funding" as const, amountInr: milestoneAmount(contract, m), evidence: [] }])
       );
       appendEntry(d.log, "contract_edited", { by: body.party ?? "unknown", draftHash: sha256(JSON.stringify(contract)) });
     });

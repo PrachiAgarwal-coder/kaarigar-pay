@@ -9,7 +9,7 @@ export async function settle(
   action: "release" | "partial_release" | "void",
   by: string,
   reason: string,
-  amountUsd?: number
+  amountInr?: number
 ) {
   const ms = deal.milestones[mid];
   if (!ms.authorizationId) throw new Error("Milestone has no PayPal authorization.");
@@ -17,19 +17,23 @@ export async function settle(
   if (action === "void") {
     await voidAuthorization(ms.authorizationId);
     ms.status = "voided";
-    ms.releasedUsd = 0;
-    appendEntry(deal.log, "voided", { milestone: mid, by, reason, refundedToBuyerUsd: ms.amountUsd });
+    ms.releasedInr = 0;
+    appendEntry(deal.log, "voided", { milestone: mid, by, reason, refundedToBuyerInr: ms.amountInr });
   } else {
-    const partial = action === "partial_release" && amountUsd !== undefined && amountUsd < ms.amountUsd;
-    const cap = await captureAuthorization(ms.authorizationId, partial ? amountUsd : undefined);
+    const partial = action === "partial_release" && amountInr !== undefined && amountInr < ms.amountInr;
+    // convert the rupee release into the same share of the USD authorization
+    const partialUsd =
+      partial && ms.chargedUsd ? Math.floor(((ms.chargedUsd * amountInr!) / ms.amountInr) * 100) / 100 : undefined;
+    const cap = await captureAuthorization(ms.authorizationId, partialUsd);
     ms.captureId = cap.captureId;
-    ms.releasedUsd = partial ? amountUsd : ms.amountUsd;
+    ms.releasedInr = partial ? amountInr : ms.amountInr;
     ms.status = partial ? "partially_released" : "released";
     appendEntry(deal.log, partial ? "partially_released" : "released", {
       milestone: mid,
       by,
       reason,
-      releasedUsd: ms.releasedUsd,
+      releasedInr: ms.releasedInr,
+      capturedUsd: partialUsd ?? ms.chargedUsd,
       paypalCaptureId: cap.captureId,
     });
   }
@@ -40,7 +44,7 @@ export async function settle(
   if (done) {
     deal.status = "completed";
     appendEntry(deal.log, "contract_completed", {
-      totalReleasedUsd: Object.values(deal.milestones).reduce((s, m) => s + (m.releasedUsd ?? 0), 0),
+      totalReleasedInr: Object.values(deal.milestones).reduce((s, m) => s + (m.releasedInr ?? 0), 0),
     });
   }
 }
