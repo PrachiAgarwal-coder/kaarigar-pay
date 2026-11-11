@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const dealText = String(form.get("dealText") ?? "").trim();
+    const category = String(form.get("category") ?? "") || undefined;
     const audioFile = form.get("audio");
     let audio: { mime: string; base64: string } | undefined;
     if (audioFile instanceof File && audioFile.size > 0) {
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     }
     if (!dealText && !audio) return NextResponse.json({ error: "Describe the deal or attach a voice note." }, { status: 400 });
 
-    const contract = await draftContract(dealText, audio);
+    const contract = await draftContract(dealText, audio, category);
     const deal: Deal = {
       id: crypto.randomBytes(5).toString("hex"),
       createdAt: new Date().toISOString(),

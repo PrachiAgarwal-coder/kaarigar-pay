@@ -22,8 +22,24 @@ export const MilestoneSchema = z.object({
   autoReleaseMinConfidence: z.number().min(0).max(1),
 });
 
+export const TermsSchema = z.object({
+  paymentStructure: z.string().default(""), // "30% on materials, 50% on finished goods, 20% on shipment"
+  incoterm: z.string().default(""),
+  deliveryTimeline: z.string().default(""),
+  inspection: z.string().default(""),
+  qualityStandards: z.array(z.string()).default([]),
+  returnsAndDefects: z.string().default(""),
+  latePenalty: z.string().default(""),
+  standardPracticeNote: z.string().default(""), // how this deal compares to the category norm
+});
+
 export const ContractSchema = z.object({
   title: z.string(),
+  category: z.string().default("general"),
+  terms: TermsSchema.default({
+    paymentStructure: "", incoterm: "", deliveryTimeline: "", inspection: "",
+    qualityStandards: [], returnsAndDefects: "", latePenalty: "", standardPracticeNote: "",
+  }),
   buyer: z.object({ name: z.string(), country: z.string() }),
   seller: z.object({ name: z.string(), country: z.string() }),
   totalAmountInr: z.number().positive(),
@@ -66,6 +82,9 @@ export function milestoneAmount(c: Contract, m: Milestone): number {
 /** Plain-text shape description given to the model (no schema API needed). */
 export const CONTRACT_SHAPE = `{
   "title": string,
+  "category": string,
+  "terms": { "paymentStructure": string, "incoterm": string, "deliveryTimeline": string, "inspection": string,
+      "qualityStandards": [string], "returnsAndDefects": string, "latePenalty": string, "standardPracticeNote": string },
   "buyer": { "name": string, "country": string },
   "seller": { "name": string, "country": string },
   "totalAmountInr": number (Indian rupees),

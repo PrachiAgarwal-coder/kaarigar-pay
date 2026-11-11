@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { geminiJSON, type Part } from "./gemini";
 import { CONTRACT_SHAPE, ContractSchema, normalizeContract, type Contract, type Milestone } from "./contract";
+import { getCategory } from "./categories";
 
 /* ------------------------------------------------------------------ */
 /* 1. Drafting: messy deal description (text and/or voice) -> contract */
@@ -20,12 +21,32 @@ Rules:
 - autoReleaseMinConfidence: 0.85-0.95 depending on value at risk.
 - buyerReviewHours: 24-72. allowPartialRelease: true when the order has multiple units.
 - governingLaw and disputeResolution: name a neutral governing law and an online arbitration clause.
+- terms: fill every field concisely (one short sentence or phrase each). latePenalty: a reasonable delay clause.
+  standardPracticeNote: 1-2 sentences on how this deal compares to the category's usual practice.
 - All amounts in Indian rupees (INR), as plain numbers (no symbols, no commas). If a price is given in another currency, convert it to INR at about 88 INR per USD. If the description is in Hindi or another language, still write the contract in English.
 Return ONLY JSON matching this shape:
 ${CONTRACT_SHAPE}`;
 
-export async function draftContract(dealText: string, audio?: { mime: string; base64: string }): Promise<Contract> {
-  const parts: Part[] = [{ text: `Deal description:\n${dealText || "(see voice note)"}` }];
+export async function draftContract(
+  dealText: string,
+  audio?: { mime: string; base64: string },
+  categoryId?: string
+): Promise<Contract> {
+  const cat = getCategory(categoryId);
+  const template = cat
+    ? `BUSINESS CATEGORY: ${cat.name} (id "${cat.id}")
+STANDARD PRACTICE FOR THIS CATEGORY (use as the baseline; follow the parties' own terms where they differ,
+and explain any difference in terms.standardPracticeNote):
+- Typical payment structure: ${cat.typicalPayment}
+- Typical milestones and evidence: ${JSON.stringify(cat.milestones)}
+- Inspection norm: ${cat.inspection}
+- Quality standards: ${cat.qualityStandards.join("; ")}
+- Usual Incoterm: ${cat.incoterm}
+- Returns/defects norm: ${cat.returnsAndDefects}
+- Other norms: ${cat.notes.join("; ")}
+Set "category" to "${cat.id}".`
+    : `BUSINESS CATEGORY: not specified. Infer the industry and apply its usual trade practice. Set "category" to "general".`;
+  const parts: Part[] = [{ text: `${template}\n\nDeal description:\n${dealText || "(see voice note)"}` }];
   if (audio) parts.push({ inline_data: { mime_type: audio.mime, data: audio.base64 } });
 
   let raw = await geminiJSON(DRAFT_SYSTEM, parts);
@@ -96,7 +117,9 @@ export async function verifyEvidence(
 ): Promise<Verification> {
   const checks = milestone.evidenceRequired.flatMap((e) => e.checks);
   const context = {
+    category: contract.category,
     items: contract.items,
+    qualityStandards: contract.terms.qualityStandards,
     milestone: { name: milestone.name, evidenceRequired: milestone.evidenceRequired },
     checksToEvaluate: checks,
   };

@@ -66,3 +66,17 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 }
+
+// Serve the latest evidence image for this milestone (shown next to the AI checklist).
+export async function GET(_: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/evidence">) {
+  const { id, mid } = await ctx.params;
+  const deal = await getDeal(id);
+  const ev = deal?.milestones[mid]?.evidence.at(-1);
+  if (!ev) return new Response("Not found", { status: 404 });
+  try {
+    const buf = await fs.readFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, path.basename(ev.file)));
+    return new Response(new Uint8Array(buf), { headers: { "Content-Type": ev.mime, "Cache-Control": "private, max-age=3600" } });
+  } catch {
+    return new Response("Not found", { status: 404 });
+  }
+}
