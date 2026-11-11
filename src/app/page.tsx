@@ -89,6 +89,7 @@ export default function Home() {
             onClick={() => {
               setCatId(c.id);
               setDealText("");
+              setTimeout(() => document.getElementById("deal")?.scrollIntoView({ behavior: "smooth" }), 50);
             }}
             className={`rounded-2xl border p-4 text-left transition ${
               catId === c.id ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200" : "border-neutral-200 hover:border-neutral-400"
@@ -102,7 +103,7 @@ export default function Home() {
       </section>
 
       {cat && (
-        <section className="mt-6 grid gap-6 md:grid-cols-5">
+               <section id="deal" className="mt-6 grid gap-6 md:grid-cols-5">
           {/* Standard practice */}
           <aside className="rounded-2xl bg-neutral-50 p-5 md:col-span-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Standard practice · {cat.name}</p>
