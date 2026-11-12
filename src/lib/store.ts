@@ -12,7 +12,9 @@ export type MilestoneStatus =
   | "in_review" // AI not confident -> buyer decides
   | "released" // captured (full)
   | "partially_released"
-  | "voided"; // blocked / rejected -> money back to buyer
+  | "voided" // blocked / refunded -> money back to buyer
+  | "disputed" // buyer rejected evidence; money still held; seller may resubmit, accept refund, or escalate
+  | "arbitration"; // escalated per the contract's dispute clause; money stays held
 
 export type MilestoneState = {
   status: MilestoneStatus;
@@ -23,7 +25,7 @@ export type MilestoneState = {
   authorizationExpiresAt?: string;
   captureId?: string;
   releasedInr?: number;
-  evidence: { fileHash: string; mime: string; file: string; ts: string }[];
+  evidence: { fileHash: string; mime: string; file: string; ts: string; batch?: number }[];
   verification?: Verification;
   decision?: Decision;
 };
@@ -35,6 +37,8 @@ export type Deal = {
   contract: Contract;
   accepted: { buyer?: string; seller?: string };
   termsHash?: string;
+  buyerToken?: string; // private link secret for the buyer
+  sellerToken?: string; // private link secret for the seller
   fxInrPerUsd?: number; // locked at signing
   status: "draft" | "active" | "completed";
   milestones: Record<string, MilestoneState>;

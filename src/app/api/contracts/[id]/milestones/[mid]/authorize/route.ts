@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { updateDeal } from "@/lib/store";
 import { authorizeOrder } from "@/lib/paypal";
 import { appendEntry } from "@/lib/ledger";
+import { getDeal } from "@/lib/store";
+import { requireParty } from "@/lib/auth";
 
 
 // Buyer approved in the PayPal popup -> authorize = funds held, not taken.
 export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/authorize">) {
   const { id, mid } = await ctx.params;
   try {
+    const deal = await getDeal(id);
+    if (!deal) throw new Error("Deal not found");
+    requireParty(deal, req, "buyer");
     const { orderId } = await req.json();
     const auth = await authorizeOrder(orderId);
     await updateDeal(id, (d) => {

@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { getDeal, updateDeal } from "@/lib/store";
 import { createMilestoneOrder } from "@/lib/paypal";
+import { requireParty } from "@/lib/auth";
 import { DEFAULT_FX_INR_PER_USD, formatInr, inrToUsd } from "@/lib/contract";
 
 
 // Buyer clicks the PayPal button -> we create an AUTHORIZE order for this milestone's amount.
-export async function POST(_: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/order">) {
+export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/order">) {
   const { id, mid } = await ctx.params;
   try {
     const deal = await getDeal(id);
     if (!deal) throw new Error("Deal not found");
+    requireParty(deal, req, "buyer");
     if (deal.status !== "active") throw new Error("Both parties must sign before funding.");
     const ms = deal.milestones[mid];
     const m = deal.contract.milestones.find((x) => x.id === mid);

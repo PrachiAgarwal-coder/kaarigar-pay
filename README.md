@@ -21,6 +21,12 @@ Kaarigar Pay puts AI and PayPal in that gap:
 ## Currency
 Everything in the product is in **Indian rupees**. PayPal doesn't support INR for cross-border payments (since 2021, Indian PayPal users send and receive international payments in USD), so the INR→USD rate is locked when both parties sign, and only the PayPal order itself is in USD. Set the rate with `FX_INR_PER_USD` in `.env.local`.
 
+## Trust & disputes
+- **Private links:** each party gets a secret link and can only act as themselves. The buyer funds and reviews; the seller submits evidence. The creator of a deal can switch roles in demo mode.
+- **Evidence-gated release:** money is released only after verified evidence, or the buyer's approval after review.
+- **Fair disputes:** if the buyer rejects evidence, the funds stay held. The seller can resubmit, accept a refund, or escalate to arbitration under the contract's dispute clause.
+- **Contract document:** every deal can be downloaded as a formatted PDF contract with signatures and the hash of the signed terms.
+
 ## Tech
 - **PayPal:** Orders v2 (`intent: AUTHORIZE`), Payments v2 (authorization capture, partial capture with `final_capture`, void), PayPal JS SDK buttons. All in the PayPal sandbox.
 - **AI:** Google Gemini (multimodal). It parses the deal from text or audio into the structured contract, and checks evidence images against the contract specs.

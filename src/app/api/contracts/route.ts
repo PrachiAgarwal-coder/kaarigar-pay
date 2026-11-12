@@ -4,6 +4,7 @@ import { draftContract } from "@/lib/verify";
 import { milestoneAmount } from "@/lib/contract";
 import { appendEntry, sha256 } from "@/lib/ledger";
 import { saveNewDeal, type Deal } from "@/lib/store";
+import { newToken } from "@/lib/auth";
 
 
 // POST multipart: dealText (string), audio (optional file: voice note in Hindi/English)
@@ -31,6 +32,8 @@ export async function POST(req: Request) {
         contract.milestones.map((m) => [m.id, { status: "awaiting_funding", amountInr: milestoneAmount(contract, m), evidence: [] }])
       ),
       log: [],
+      buyerToken: newToken(),
+      sellerToken: newToken(),
     };
     appendEntry(deal.log, "contract_drafted", {
       by: "ai",
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
       voiceNote: Boolean(audio),
     });
     await saveNewDeal(deal);
-    return NextResponse.json({ id: deal.id });
+    return NextResponse.json({ id: deal.id, buyerToken: deal.buyerToken, sellerToken: deal.sellerToken });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

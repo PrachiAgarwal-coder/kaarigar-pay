@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { updateDeal } from "@/lib/store";
 import { appendEntry, sha256 } from "@/lib/ledger";
 import { DEFAULT_FX_INR_PER_USD } from "@/lib/contract";
+import { requireParty } from "@/lib/auth";
 
 
 // POST { party: "buyer" | "seller", name: string }
@@ -11,6 +12,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
     const { party, name } = await req.json();
     if (party !== "buyer" && party !== "seller") throw new Error("party must be buyer or seller");
     const deal = await updateDeal(id, (d) => {
+      requireParty(d, req, party);
       if (d.status !== "draft") throw new Error("Already signed.");
       const termsHash = sha256(JSON.stringify(d.contract));
       d.accepted[party as "buyer" | "seller"] = new Date().toISOString();

@@ -5,12 +5,14 @@ import { allEvidenceHashes, getDeal, updateDeal, UPLOAD_DIR } from "@/lib/store"
 import { appendEntry, sha256 } from "@/lib/ledger";
 import { decide, verifyEvidence } from "@/lib/verify";
 import { settle } from "@/lib/settle";
-
+import { requireParty } from "@/lib/auth";
 
 const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_FILES = 4;
 
-// Seller submits evidence (multipart "file"). Pipeline:
-// hash -> duplicate check -> AI inspection -> deterministic decision -> PayPal capture / void / buyer review
+// Seller submits evidence (multipart, one or more "file" fields: e.g. goods photo + invoice photo).
+// Pipeline: hash -> duplicate check -> AI inspection of all images together -> deterministic decision
+//           -> PayPal capture / void / buyer review
 export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/evidence">) {
   const { id, mid } = await ctx.params;
   try {
@@ -19,38 +21,57 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
     const ms = deal.milestones[mid];
     const m = deal.contract.milestones.find((x) => x.id === mid);
     if (!ms || !m) throw new Error("Milestone not found");
-    if (ms.status !== "funded") throw new Error(`Milestone is "${ms.status}", evidence not accepted now.`);
+    requireParty(deal, req, "seller");
+    if (ms.status !== "funded" && ms.status !== "disputed")
+      throw new Error(`Milestone is "${ms.status}", evidence not accepted now.`);
 
     const form = await req.formData();
-    const file = form.get("file");
+    const files = form.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
     const capturedInApp = form.get("capturedInApp") === "true";
-    if (!(file instanceof File)) throw new Error("No file uploaded");
-    if (!file.type.startsWith("image/")) throw new Error("Evidence must be an image (documents: photograph them).");
-    if (file.size > MAX_BYTES) throw new Error("Image too large (max 8 MB).");
+    if (!files.length) throw new Error("No file uploaded");
+    if (files.length > MAX_FILES) throw new Error(`Up to ${MAX_FILES} images per submission.`);
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    const fileHash = sha256(buf);
-    const isDuplicate = (await allEvidenceHashes()).has(fileHash);
-
+    const known = await allEvidenceHashes();
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
-    const ext = file.type.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "img";
-    const stored = path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, `${fileHash}.${ext}`);
-    await fs.writeFile(stored, buf);
+    const stored: { fileHash: string; mime: string; file: string; base64: string }[] = [];
+    let isDuplicate = false;
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) throw new Error("Evidence must be images (photograph documents).");
+      if (file.size > MAX_BYTES) throw new Error("Image too large (max 8 MB each).");
+      const buf = Buffer.from(await file.arrayBuffer());
+      const fileHash = sha256(buf);
+      if (known.has(fileHash)) isDuplicate = true;
+      const ext = file.type.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "img";
+      const name = `${fileHash}.${ext}`;
+      await fs.writeFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, name), buf);
+      stored.push({ fileHash, mime: file.type, file: name, base64: buf.toString("base64") });
+    }
 
-    const verification = await verifyEvidence(deal.contract, m, { mime: file.type, base64: buf.toString("base64") });
+    const verification = await verifyEvidence(
+      deal.contract,
+      m,
+      stored.map((s) => ({ mime: s.mime, base64: s.base64 }))
+    );
     const decision = decide(verification, m, ms.amountInr, deal.contract.allowPartialRelease, isDuplicate);
 
     const result = await updateDeal(id, async (d) => {
       const s = d.milestones[mid];
-      s.evidence.push({ fileHash, mime: file.type, file: path.basename(stored), ts: new Date().toISOString() });
+      const batch = Math.max(0, ...s.evidence.map((e) => e.batch ?? 0)) + 1;
+      const ts = new Date().toISOString();
+      for (const f of stored) s.evidence.push({ fileHash: f.fileHash, mime: f.mime, file: f.file, ts, batch });
       s.verification = verification;
       s.decision = decision;
-      appendEntry(d.log, "evidence_submitted", { milestone: mid, fileHash, capturedInApp, duplicate: isDuplicate });
+      appendEntry(d.log, "evidence_submitted", {
+        milestone: mid,
+        fileHashes: stored.map((f) => f.fileHash),
+        capturedInApp,
+        duplicate: isDuplicate,
+      });
       appendEntry(d.log, "ai_verdict", {
         milestone: mid,
         decision: decision.action,
         reason: decision.reason,
-        overallConfidence: verification.overallConfidence,
+        checksPassed: `${verification.checks.filter((c) => c.result === "pass").length}/${verification.checks.length}`,
         reportHash: sha256(JSON.stringify(verification)),
       });
 
@@ -67,11 +88,13 @@ export async function POST(req: Request, ctx: RouteContext<"/api/contracts/[id]/
   }
 }
 
-// Serve the latest evidence image for this milestone (shown next to the AI checklist).
-export async function GET(_: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/evidence">) {
+// Serve an evidence image: ?h=<fileHash prefix> (defaults to the latest file).
+export async function GET(req: Request, ctx: RouteContext<"/api/contracts/[id]/milestones/[mid]/evidence">) {
   const { id, mid } = await ctx.params;
+  const h = new URL(req.url).searchParams.get("h");
   const deal = await getDeal(id);
-  const ev = deal?.milestones[mid]?.evidence.at(-1);
+  const list = deal?.milestones[mid]?.evidence ?? [];
+  const ev = h ? list.find((e) => e.fileHash.startsWith(h)) : list.at(-1);
   if (!ev) return new Response("Not found", { status: 404 });
   try {
     const buf = await fs.readFile(path.join(/*turbopackIgnore: true*/ UPLOAD_DIR, path.basename(ev.file)));
