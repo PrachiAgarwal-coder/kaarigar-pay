@@ -29,6 +29,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const recRef = useRef<MediaRecorder | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const cat = CATEGORIES.find((c) => c.id === catId);
 
   async function toggleRecord() {
@@ -54,15 +55,21 @@ export default function Home() {
     }
   }
 
+  function stopDraft() {
+    abortRef.current?.abort();
+  }
+
   async function draft() {
     setLoading(true);
     setError("");
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       const fd = new FormData();
       fd.append("dealText", dealText);
       if (catId) fd.append("category", catId);
       if (audio) fd.append("audio", audio, "voice-note.webm");
-      const r = await fetch("/api/contracts", { method: "POST", body: fd });
+      const r = await fetch("/api/contracts", { method: "POST", body: fd, signal: ctrl.signal });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
       try {
@@ -71,8 +78,11 @@ export default function Home() {
       } catch {}
       router.push(`/c/${data.id}`);
     } catch (e) {
-      setError((e as Error).message);
+      const aborted = (e as Error).name === "AbortError";
+      setError(aborted ? "Drafting stopped. Edit the description and draft again when you're ready." : (e as Error).message);
       setLoading(false);
+    } finally {
+      abortRef.current = null;
     }
   }
 
@@ -288,6 +298,7 @@ export default function Home() {
                 <textarea
                   id="deal-text"
                   value={dealText}
+                  disabled={loading}
                   onChange={(e) => setDealText(e.target.value)}
                   rows={8}
                   placeholder="For example: 20 pairs of kundan jhumkas for a boutique in Austin, ₹3,800 a pair, 30% when materials are bought…"
@@ -308,10 +319,18 @@ export default function Home() {
                       <CheckCircle2 size={15} /> Voice note added
                     </span>
                   )}
+                  {loading && (
+                    <button
+                      onClick={stopDraft}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-madder ring-1 ring-madder/40 transition hover:bg-madder hover:text-white sm:ml-auto sm:w-auto"
+                    >
+                      <X size={16} /> Stop drafting
+                    </button>
+                  )}
                   <button
                     onClick={draft}
                     disabled={loading || (!dealText && !audio)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-7 py-3.5 font-semibold text-white transition hover:bg-ink-2 disabled:opacity-30 sm:ml-auto sm:w-auto"
+                    className={`inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-7 py-3.5 font-semibold text-white transition hover:bg-ink-2 disabled:opacity-30 sm:w-auto ${loading ? "" : "sm:ml-auto"}`}
                   >
                     {loading ? (
                       <>
