@@ -22,8 +22,8 @@ Milestone payments for small exporters. The buyer's money is **held by PayPal** 
 Everything runs in the **PayPal sandbox**: no real money moves.
 
 **Sandbox buyer login** (enter it in the PayPal popup, not a real account):
-- Email: `_add sandbox buyer email_`
-- Password: `_add sandbox buyer password_`
+- Email: `sb-mpqfq53854863@personal.example.com`
+- Password: `|aL5^)d;`
 
 1. Open the [live demo](https://kaarigar-pay.onrender.com) → **Start a contract** → **Handicrafts & Jewellery** → **Fill in an example** → **Draft the contract** (15–45 s).
 2. You're in demo mode, so the **Buyer / Seller** switch at the top lets you act as both parties. Sign as **Seller**, switch to **Buyer**, sign.
