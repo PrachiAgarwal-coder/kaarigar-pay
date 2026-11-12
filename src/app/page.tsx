@@ -29,15 +29,54 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const recRef = useRef<MediaRecorder | null>(null);
+  const speechRef = useRef<SpeechRec | null>(null);
+  const [lang, setLang] = useState<"en-IN" | "hi-IN">("en-IN");
+  const [interim, setInterim] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const cat = CATEGORIES.find((c) => c.id === catId);
 
   async function toggleRecord() {
     if (recording) {
+      speechRef.current?.stop();
       recRef.current?.stop();
       setRecording(false);
+      setInterim("");
       return;
     }
+    setError("");
+    // Preferred: live dictation, so the seller sees (and can fix) every word in the box.
+    const SR = getSpeechRecognition();
+    if (SR) {
+      const rec = new SR();
+      rec.lang = lang;
+      rec.continuous = true;
+      rec.interimResults = true;
+      const base = dealText.trim() ? dealText.trim() + " " : "";
+      let finals = "";
+      rec.onresult = (e) => {
+        let live = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) finals += r[0].transcript.trim() + " ";
+          else live += r[0].transcript;
+        }
+        setDealText(base + finals.trimEnd());
+        setInterim(live);
+      };
+      rec.onerror = (e) => {
+        if (e.error === "not-allowed") setError("Microphone access was blocked. Allow it in the browser, or type the deal instead.");
+        else if (e.error !== "no-speech" && e.error !== "aborted") setError(`Dictation stopped (${e.error}). Tap the mic to continue.`);
+      };
+      rec.onend = () => {
+        setRecording(false);
+        setInterim("");
+      };
+      speechRef.current = rec;
+      rec.start();
+      setRecording(true);
+      return;
+    }
+    // Fallback (browsers without dictation): record audio and let the AI listen to it.
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
@@ -305,15 +344,30 @@ export default function Home() {
                   className="mt-4 w-full flex-1 resize-none rounded-2xl border border-ink/10 bg-cream p-4 text-[15px] leading-relaxed outline-none transition focus:border-ink-2 focus:bg-white focus:ring-4 focus:ring-ink-2/10"
                 />
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={toggleRecord}
-                    className={`inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition ${
-                      recording ? "bg-madder text-white" : "ring-1 ring-ink/15 hover:bg-indigo-soft"
-                    }`}
-                  >
-                    <Mic size={16} className={recording ? "kp-pulse" : ""} />
-                    {recording ? "Stop recording" : "Record a voice note"}
-                  </button>
+                  <div className="inline-flex items-center gap-1 rounded-full p-1 ring-1 ring-ink/15">
+                    <button
+                      onClick={toggleRecord}
+                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                        recording ? "bg-madder text-white" : "hover:bg-indigo-soft"
+                      }`}
+                    >
+                      <Mic size={16} className={recording ? "kp-pulse" : ""} />
+                      {recording ? "Stop dictation" : "Speak the order"}
+                    </button>
+                    {(["en-IN", "hi-IN"] as const).map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => setLang(l)}
+                        disabled={recording}
+                        aria-pressed={lang === l}
+                        className={`rounded-full px-3 py-2 text-sm transition disabled:opacity-50 ${
+                          lang === l ? "bg-ink text-white" : "text-ink/60 hover:bg-indigo-soft"
+                        }`}
+                      >
+                        {l === "en-IN" ? "English" : "हिन्दी"}
+                      </button>
+                    ))}
+                  </div>
                   {audio && !recording && (
                     <span className="inline-flex items-center gap-1 text-sm text-neem">
                       <CheckCircle2 size={15} /> Voice note added
@@ -341,6 +395,15 @@ export default function Home() {
                     )}
                   </button>
                 </div>
+                {recording && (
+                  <p className="mt-3 flex items-start gap-2 text-sm text-ink/70" aria-live="polite">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-madder kp-pulse" />
+                    <span>
+                      Listening in {lang === "hi-IN" ? "Hindi" : "English"}…{" "}
+                      {interim && <i className="text-ink/50">{interim}</i>}
+                    </span>
+                  </p>
+                )}
                 {loading && <p className="mt-3 text-sm text-ink/55">Writing specs, tolerances, milestones and legal clauses. This takes 15 to 45 seconds.</p>}
                 {error && <p className="mt-3 text-sm text-madder">{error}</p>}
               </div>
@@ -624,4 +687,25 @@ function ProofPanel({ kind }: { kind: "real" | "fake" }) {
       </div>
     </div>
   );
+}
+
+/* ---------------- Browser dictation (Web Speech API) ---------------- */
+
+type SpeechResult = { isFinal: boolean; 0: { transcript: string } };
+type SpeechEvent = { resultIndex: number; results: ArrayLike<SpeechResult> };
+type SpeechRec = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: SpeechEvent) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getSpeechRecognition(): (new () => SpeechRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
